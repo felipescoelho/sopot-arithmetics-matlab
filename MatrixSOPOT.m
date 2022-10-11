@@ -1,50 +1,51 @@
 classdef MatrixSOPOT
-%   MatrixSOPOT.m
-%       Class for SOPOT arithmetic implementation. The matrices are
-%       approximated column by column using the MPGBP SOPOT
-%       approximation method. This class overloads some usual matlab 
-%       operators and facilitate the SOPOT implementation.
-%
-%
-%   Syntax: obj = MatrixSOPOT(x, spt_num, wordlength, max_pot)
-%
-%
-%   Input:
-%       . x: 2-D array to be approximated.
-%       . spt_num: Total amount of active signed power of two terms.
-%       . wordlength: Number of possible powers of two.
-%       . max_pot: Highest possible power of two.
-%
-%
-%   Output:
-%       . Object with the following properties:
-%           - Value: SOPOT approximated value.
-%           - Wordlength: Number of possible powers of two.
-%           - MaxNumSPT: Total amount of active signed power of two terms.
-%           - MaxPot: Highest possible power of two.
-%
-%
-%   Author: Luiz Felipe da S. Coelho - luizfelipe.coelho@smt.ufrj.br
-%
-
+    %   MatrixSOPOT.m
+    %       Class for SOPOT arithmetic implementation. The matrices are
+    %       approximated column by column using the MPGBP SOPOT
+    %       approximation method. This class overloads some standard MATLAB
+    %       operators and facilitate the SOPOT implementation.
+    %
+    %
+    %   Syntax: obj = MatrixSOPOT(x, maxNumberSPT, wordLength, maxPower)
+    %
+    %
+    %   Input:
+    %       . x: 1D or 2D array to be approximated.
+    %       . maxNumberSPT: Maximum amount of active signed power of two
+    %       terms.
+    %       . wordLength: Number of possible positions for active SPT.
+    %       . maxPower: Highest possible power for a SPT.
+    %
+    %
+    %   Output:
+    %       . Object with the following properties:
+    %           - Value: SOPOT approximated value.
+    %           - Wordlength: Number of possible powers of two.
+    %           - MaxNumSPT: Total amount of active signed power of two terms.
+    %           - MaxPot: Highest possible power of two.
+    %
+    %
+    %   Author: Luiz Felipe da S. Coelho - luizfelipe.coelho@smt.ufrj.br
+    %
+    
     properties
         % ----------------------------------------------------------------
         %                   ##### PUBLIC PROPERTIES #####
         % ----------------------------------------------------------------
         Value
-        RealValue
         Wordlength
         MaxNumSPT
-        MaxPot
-        SOPOTNum
+        MaxPower
     end
     properties (Access = private)
         % ----------------------------------------------------------------
         %                  ##### PRIVATE PROPERTIES #####
         % ----------------------------------------------------------------
-        
+        RealSOPOT
+        ImaginarySOPOT
         NumRows
         NumCols
+        isComplex
 
     end
     methods
@@ -60,55 +61,173 @@ classdef MatrixSOPOT
             % * PRIVATE CONSTRUCTOR:
                 sopot = varargin{1};
                 ipt = varargin{2};
-                [row_num, col_num, word_len] = size(sopot);
+                [numberRows, numberColumns, wordLength] = size(sopot);
                 % --------------------------------------------------------
                 % * PROPERTIES ALLOCATION:
-                obj.RealValue = ipt.real_val;
                 obj.Value = MatrixSOPOT.recover(sopot, ipt.max_pot);
-                obj.Wordlength = word_len;
+                obj.Wordlength = wordLength;
                 obj.MaxNumSPT = ipt.max_num_spt;
-                obj.MaxPot = ipt.max_pot;
-                obj.NumRows = row_num;
-                obj.NumCols = col_num;
-                obj.SOPOTNum = sopot;
+                obj.MaxPower = ipt.max_pot;
+                obj.NumRows = numberRows;
+                obj.NumCols = numberColumns;
+                obj.RealSOPOT = sopot;
+                obj.ImaginarySOPOT = sopot;
             elseif nargin == 4
             % ------------------------------------------------------------
             % * PUBLIC CONSTRUCTOR:
-                val = varargin{1};
-                max_num_spt = varargin{2};
-                word_len = varargin{3};
-                max_pot = varargin{4};
-                sopot = MatrixSOPOT.mpgbp(val, max_num_spt, word_len, max_pot);
-                [row_num, col_num] = size(val);
+                inputArray = varargin{1};
+                maxNumSPT = varargin{2};
+                wordLength = varargin{3};
+                maxPower = varargin{4};
+                [numberRows, numberColumns] = size(inputArray);
+                realSOPOT = MatrixSOPOT.mpgbp(real(inputArray), ...
+                    maxNumSPT, wordLength, maxPower);
+                if ~isreal(inputArray)
+                    obj.isComplex = true;
+                    imaginarySOPOT = MatrixSOPOT.mpgbp( ...
+                        imag(inputArray), maxNumSPT, wordLength, maxPower);
+                else
+                    obj.isComplex = false;
+                end
                 % --------------------------------------------------------
                 % * PROPERTIES ALLOCATION
-                obj.RealValue = val;
-                obj.Value = MatrixSOPOT.recover(sopot, max_pot);
-                obj.Wordlength = word_len;
-                obj.MaxNumSPT = max_num_spt;
-                obj.MaxPot = max_pot;
-                obj.NumRows = row_num;
-                obj.NumCols = col_num;
-                obj.SOPOTNum = sopot;
+                if obj.isComplex
+                    obj.Value = MatrixSOPOT.recover(realSOPOT, ...
+                        maxPower) + 1j*MatrixSOPOT.recover( ...
+                        imaginarySOPOT, maxPower);
+                    obj.ImaginarySOPOT = imaginarySOPOT;
+                else
+                    obj.Value = MatrixSOPOT.recover(realSOPOT, maxPower);
+                    obj.ImaginarySOPOT = zeros(size(realSOPOT));
+                end
+                obj.Wordlength = wordLength;
+                obj.MaxNumSPT = maxNumSPT;
+                obj.MaxPower = maxPower;
+                obj.NumRows = numberRows;
+                obj.NumCols = numberColumns;
+                obj.RealSOPOT = realSOPOT;
             end
         end
         % ----------------------------------------------------------------
-        %                    *** OPERATOR OVERLOAD ***
+        %                 *** OPERATOR OVERLOADING ***
         % ----------------------------------------------------------------
-        function result = plus(o1, o2)
-            % operator: +
-            pre_result = [o1.SOPOTNum] + [o2.SOPOTNum];
-            ipt.real_val = [o1.RealValue] + [o2.RealValue];
-            ipt.max_pot = o1.MaxPot;
-            ipt.max_num_spt = o1.MaxNumSPT;
-            result_aux = zeros(o1.NumRows, o1.NumCols, o1.Wordlength);
-            for i = 1:o1.NumRows
-                for j = 1:o1.NumCols
+        function arraySize = size(object)
+            % Array size.
+            %
+            % Returns a row vector whose elements are the lengths of the
+            % corresponding dimensions of the SOPOT array.
+            
+            arraySize = [object.NumRows object.NumCols];
+        end
+        function arrayLength = length(object)
+            % Length of largest array dimension.
+            %
+            % Return the length of the largest array dimension of the SOPOT
+            % array.
+            
+            arrayLength = max(object.NumRows, object.NumCols);
+        end
+        function resultingObject = plus(objA, objB)
+            % Add numbers.
+            %
+            % Adds arrays by adding corresponding elements.
+            
+            complexTest = objA.isComplex || objB.isComplex;
+            if all(size(objA) == size(objB))  % Both same size
+                [numRows, numCols] = size(objA);
+                resultReal = zeros(numRows, numCols, objA.WordLength);
+                resultImaginary = zeros(numRows, numCols, objA.WordLength);
+                if complexTest
+                    for row = 1:numRows
+                        for col = 1:numCols
+                            resultReal(row, col, :) = sum_sopots( ...
+                                objA.RealSOPOT(row, col, :), ...
+                                objB.RealSOPOT(row, col, :), ...
+                                objA.MaxPower, objA.WordLength);
+                            resultImaginary(row, col, :) = sum_sopots( ...
+                                objA.ImaginarySOPOT(row, col, :), ...
+                                objB.ImaginarySOPOT(row, col, :), ...
+                                objA.MaxPower, objA.WordLength);
+                        end
+                    end
+                else
+                    for row = 1:numRows
+                        for col = 1:numCols
+                            resultReal(row, col, :) = sum_sopots( ...
+                                objA.RealSOPOT(row, col, :), ...
+                                objB.RealSOPOT(row, col, :), ...
+                                objA.MaxPower, objA.WordLength);
+                        end
+                    end
+                end
+            elseif isscalar(objA)  % objA is scalar
+                [numRows, numCols] = size(objB);
+                resultReal = zeros(numRows, numCols, objA.WordLength);
+                resultImaginary = zeros(numRows, numCols, objA.WordLength);
+                if complexTest
+                    for row = 1:numRows
+                        for col = 1:numCols
+                            resultReal(row, col, :) = sum_sopots( ...
+                                objA.RealSOPOT(1, 1, :), ...
+                                objB.RealSOPOT(row, col, :), ...
+                                objA.MaxPower, objA.WordLength);
+                            resultImaginary(row, col, :) = sum_sopots( ...
+                                objA.ImaginarySOPOT(1, 1, :), ...
+                                objB.ImaginarySOPOT(row, col, :), ...
+                                objA.MaxPower, objA.WordLength);
+                        end
+                    end
+                else
+                    for row = 1:numRows
+                        for col = 1:numCols
+                            resultReal(row, col, :) = sum_sopots( ...
+                                objA.RealSOPOT(1, 1, :), ...
+                                objB.RealSOPOT(row, col, :), ...
+                                objA.MaxPower, objA.WordLength);
+                        end
+                    end
+                end
+            elseif isscalar(objB)  % objB is scalar
+                [numRows, numCols] = size(objA);
+                resultReal = zeros(numRows, numCols, objA.WordLength);
+                resultImaginary = zeros(numRows, numCols, objA.WordLength);
+                if complexTest
+                    for row = 1:numRows
+                        for col = 1:numCols
+                            resultReal(row, col, :) = sum_sopots( ...
+                                objA.RealSOPOT(row, col, :), ...
+                                objB.RealSOPOT(1, 1, :), ...
+                                objA.MaxPower, objA.WordLength);
+                            resultImaginary(row, col, :) = sum_sopots( ...
+                                objA.ImaginarySOPOT(row, col, :), ...
+                                objB.ImaginarySOPOT(1, 1, :), ...
+                                objA.MaxPower, objA.WordLength);
+                        end
+                    end
+                else
+                    for row = 1:numRows
+                        for col = 1:numCols
+                            resultReal(row, col, :) = sum_sopots( ...
+                                objA.RealSOPOT(row, col, :), ...
+                                objB.RealSOPOT(1, 1, :), ...
+                                objA.MaxPower, objA.WordLength);
+                        end
+                    end
+                end
+            elseif 
+            end
+            pre_result = [objA.SOPOTNum] + [objB.SOPOTNum];
+            ipt.max_pot = objA.MaxPot;
+            ipt.max_num_spt = objA.MaxNumSPT;
+            result_aux = zeros(objA.NumRows, objA.NumCols, ...
+                objA.Wordlength);
+            for i = 1:objA.NumRows
+                for j = 1:objA.NumCols
                     result_aux(i, j, :) = MatrixSOPOT.reapprox(pre_result(i, j, :),...
-                        o1.MaxNumSPT);
+                        objA.MaxNumSPT);
                 end
             end
-            result = MatrixSOPOT(result_aux, ipt);
+            resultingObject = MatrixSOPOT(result_aux, ipt);
         end
         function result = minus(o1, o2)
             % operator: -
@@ -197,18 +316,43 @@ classdef MatrixSOPOT
         % ----------------------------------------------------------------
         %                  PRIVATE AND STATIC METHODS
         % ----------------------------------------------------------------
-        function sopot = mpgbp(val, max_num_spt, word_len, max_pot)
+        function resultSOPOT = sum_sopots(SOPOTA, SOPOTB, maxNumberSPT, ...
+                wordLength)
+            % Sum two SOPOTs
+            %
+            % Returns a SOPOT element containing an already reduced form of
+            % SOPOT.
+            
+            resultSOPOT = zeros(1, wordLength);
+            auxVar = 0;
+            for indexer = wordLength:-1:1
+                auxVar = auxVar + SOPOTA(indexer) + SOPOTB(indexer);
+                if abs(auxVar) ~= 2
+                    resultSOPOT(indexer) = auxVar;
+                    auxVar = 0;
+                else
+                    auxVar = sign(auxVar);
+                end
+            end
+            indexCount = wordLength;
+            while nnz(resultSOPOT) > maxNumberSPT
+                resultSOPOT(indexCount) = 0;
+                indexCount = indexCount - 1;
+            end
+        end
+        
+        function sopot = mpgbp(inputArray, maxNumberSPT, wordLength, maxPower)
             % ------------------------------------------------------------
             %               MPGBP FOR SOPOT APPROXIMATION
             % ------------------------------------------------------------
-            [row_num, col_num] = size(val);
-            sopot = zeros(row_num, col_num, word_len);
-            if nnz(val) ~= 0
-                P = floor(sqrt(row_num*col_num));
-                residue = val(:);
-                col_aux = zeros(row_num*col_num, word_len);
+            [numberRows, numberColumns] = size(inputArray);
+            sopot = zeros(numberRows, numberColumns, wordLength);
+            if nnz(inputArray) ~= 0
+                P = floor(sqrt(numberRows*numberColumns));
+                residue = inputArray(:);
+                col_aux = zeros(numberRows*numberColumns, wordLength);
                 while norm(residue) > 1e-12
-                    v_rm = zeros(row_num*col_num, 1);
+                    v_rm = zeros(numberRows*numberColumns, 1);
                     temp_val = residue;
                     [~, idx_temp] = sort(abs(temp_val), 'descend');
                     m_idx = idx_temp(1:P);
@@ -221,16 +365,16 @@ classdef MatrixSOPOT
                     km = ceil(log2(3/(4*ip)));
                     kfactor = 2^-km;
                     residue = residue - kfactor*v_rm;
-                    if (km+max_pot+1) <= word_len && km >= -max_pot
+                    if (km+maxPower+1) <= wordLength && km >= -maxPower
                         for i = 1:P
-                            col_aux(m_idx(i), km+max_pot+1) = col_aux(m_idx(i), km+max_pot+1) + v_rm(m_idx(i));
+                            col_aux(m_idx(i), km+maxPower+1) = col_aux(m_idx(i), km+maxPower+1) + v_rm(m_idx(i));
                         end
                     end
                 end
-                for row = 1:row_num
-                    col_aux(row, :) = MatrixSOPOT.reapprox(col_aux(row, :), max_num_spt);
+                for row = 1:numberRows
+                    col_aux(row, :) = MatrixSOPOT.reapprox(col_aux(row, :), maxNumberSPT);
                 end
-                sopot = reshape(col_aux, row_num, col_num, word_len);
+                sopot = reshape(col_aux, numberRows, numberColumns, wordLength);
             end
         end
         function col_aux = reapprox(x, max_num_spt)
@@ -306,13 +450,13 @@ classdef MatrixSOPOT
             end
             result = sum(result, 1);
         end
-        function result = recover(x, max_pot)
+        function result = recover(x, maxPower)
             % ------------------------------------------------------------
             %           RECOVER FROM SOPOT REPRESENTATION
             % ------------------------------------------------------------
             [num_row, num_col, word_len] = size(x);
             m = zeros(num_row*num_col*word_len, 1);
-            bit_plane = flip(ceil(find(flip(x, 3)~=0)./(num_row*num_col))+(max_pot-word_len));
+            bit_plane = flip(ceil(find(flip(x, 3)~=0)./(num_row*num_col))+(maxPower-word_len));
             n = x(x~=0);
             m(x~=0) = n(:).*2.^bit_plane;
             aux = reshape(m, num_row, num_col, word_len);
@@ -320,3 +464,6 @@ classdef MatrixSOPOT
         end
     end
 end
+
+
+% EoF
