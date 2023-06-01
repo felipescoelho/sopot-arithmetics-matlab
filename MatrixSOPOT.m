@@ -117,10 +117,9 @@ classdef MatrixSOPOT
         end
         
         function varargout = size(obj)
-            % size      Array size
-            %
-            %   Syntax:
-            %       arraySize = size(obj)
+            % SIZE  Array size
+            %   
+            %   sz = size(A)
             %
             %   Description:
             %       size(obj) returns a row vector whose elements are the
@@ -439,21 +438,13 @@ classdef MatrixSOPOT
         
         function result = minus(o1, o2)
             % operator: -
-            pre_result = [o1.SOPOTNum] - [o2.SOPOTNum];
-            ipt.real_val = [o1.RealValue] - [o2.RealValue];
-            ipt.max_pot = o1.MaxPot;
-            ipt.max_num_spt = o1.MaxNumSPT;
-            result_aux = zeros(o1.NumRows, o1.NumCols, o1.Wordlength);
-            for i = 1:o1.NumRows
-                for j = 1:o1.NumCols
-                    result_aux(i, j, :) = MatrixSOPOT.reapprox(pre_result(i, j, :),...
-                        o1.MaxNumSPT);
-                end
-            end
-            result = MatrixSOPOT(result_aux, ipt);
+            
+            dummy = -o2;
+            
+            result = o1+dummy;
         end
         
-        function result = times(o1, o2)
+        function result = times(o1, o2)  % TODO
             % operator: .*
             ipt.real_val = [o1.RealValue] .* [o2.RealValue];
             ipt.max_pot = o1.MaxPot;
@@ -491,7 +482,7 @@ classdef MatrixSOPOT
             result = MatrixSOPOT(result_aux, ipt);
         end
         
-        function result = mtimes(o1, o2)
+        function result = mtimes(o1, o2)  % TODO
             % operator: *
             if o1.NumCols == o2.NumRows
                 pre_result = zeros(o1.NumRows, o2.NumCols, o1.Wordlength);
@@ -513,15 +504,15 @@ classdef MatrixSOPOT
             result = MatrixSOPOT(pre_result, ipt);
         end
         
-        function [] = rdivide()
+        function [] = rdivide()  % TODO
             % operator: ./
         end
         
-        function [] = mrdivide()
+        function [] = mrdivide()  % TODO
             % operator: /
         end
         
-        function [] = transpose()
+        function [] = transpose()  % TODO
             % operator: '
         end
     end
